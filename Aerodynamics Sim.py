@@ -1,25 +1,27 @@
 import turtle, time, random
 
-screenWidth, screenHeight = 800, 600
-rowCount, columnCount = 400, 400
-cellSpacing = 2
+screenWidth, screenHeight = 800, 600 #  screen dimensions
+rowCount, columnCount = 400, 400 #  grid dimensions
+cellSpacing = 2 #  spacing between cells in the grid
 
-tickSpeed = 0
-viscosity = 3
-penSize = 8
+tickSpeed = 0 #  delay between simulation steps (seconds)
+viscosity = 3 #  higher values = more viscous fluid
+penSize = 8 #  area painted around mouse click
 
+ #  screen setup
 screen = turtle.Screen()
 screen.colormode(1.0)
 screen.screensize(screenWidth, screenHeight)
 screen.tracer(0)
 screen.listen()
 
+ #  asset stamp turtle
 assetStamp = turtle.Turtle()
 assetStamp.hideturtle()
 assetStamp.speed(0)
 assetStamp.penup()
 
-def createGrid(rows, columns, spacing):
+def createGrid(rows, columns, spacing): #  create grid coordinates and index
     gridCoords, gridIndex = [], []
     startX = -(rows * spacing / 2) + spacing / 2
     startY = -(columns * spacing / 2) + spacing / 2
@@ -31,7 +33,7 @@ def createGrid(rows, columns, spacing):
             indexCounter += 1
     return gridCoords, gridIndex
 
-def drawGrid(gridCoords):
+def drawGrid(gridCoords): #  draw grid lines
     gridTurtle = turtle.Turtle()
     gridTurtle.hideturtle()
     gridTurtle.speed(0)
@@ -73,7 +75,7 @@ def createCellsDict(indexList):
     
     return d
 
-def drawGridAssets():
+def drawGridAssets(): # draw solid and air cells
     global cells, gridCoords, cellSize
     assetStamp.clear()
     for cellKey, cellData in cells.items():
@@ -84,21 +86,21 @@ def drawGridAssets():
                 coordX, coordY = gridCoords[idx]
                 assetStamp.goto(coordX - cellSize / 2, coordY - cellSize / 2)
                 if state == 'solid':
-                    assetStamp.color('black')
+                    assetStamp.color('black') #  solid cells are black
                 else:
-                    colorTuple = cellData.get('color', (1.0, 1.0, 1.0))
+                    colorTuple = cellData.get('color', (1.0, 1.0, 1.0)) #  default to white
                     if colorTuple[1] == 1:
                         continue
                     else:
                         assetStamp.color(colorTuple)
                 assetStamp.begin_fill()
-                for _ in range(4):
+                for _ in range(4): #  draw square cell
                     assetStamp.forward(cellSize)
                     assetStamp.left(90)
                 assetStamp.end_fill()
-    screen.update()
+    screen.update() #  call at the end to prevent flickering
 
-def buildPosMap(cellsDict):
+def buildPosMap(cellsDict): #  build position map from cells dictionary (optimmization for faster lookup)
     
     d = {}
 
@@ -109,10 +111,10 @@ def buildPosMap(cellsDict):
 
     return d
 
-def getKeyAt(ix, iy, posMap):
+def getKeyAt(ix, iy, posMap): #  get cell key at given indices using position map (optimization for faster lookup)
     return posMap.get((ix, iy))
 
-def paintArea(centerX, centerY, state):
+def paintArea(centerX, centerY, state): #  paint area around given center cell
     positionMap = buildPosMap(cells)
     half = penSize // 2
     for dx in range(-half, -half + penSize):
@@ -125,20 +127,20 @@ def paintArea(centerX, centerY, state):
                 elif state == 'empty':
                     cells[key]['color'] = (1.0, 1.0, 1.0)
 
-def onMouseLeft(clickX, clickY):
+def onMouseLeft(clickX, clickY): #  paint solid on left click
     global gridCoords, xSpacing, ySpacing
     for i, (gridX, gridY) in enumerate(gridCoords):
-        if -(xSpacing / 2) <= (clickX - gridX) <= (xSpacing / 2) and -(ySpacing / 2) <= (clickY - gridY) <= (ySpacing / 2):
+        if -(xSpacing / 2) <= (clickX - gridX) <= (xSpacing / 2) and -(ySpacing / 2) <= (clickY - gridY) <= (ySpacing / 2): #  check if click is within cell bounds
             centerX = cells[str(i)]['indexX']
             centerY = cells[str(i)]['indexY']
             paintArea(centerX, centerY, 'solid')
             drawGridAssets()
             break
 
-def onMouseRight(clickX, clickY):
+def onMouseRight(clickX, clickY): #  paint empty on right click
     global gridCoords, xSpacing, ySpacing
     for i, (gridX, gridY) in enumerate(gridCoords):
-        if -(xSpacing / 2) <= (clickX - gridX) <= (xSpacing / 2) and -(ySpacing / 2) <= (clickY - gridY) <= (ySpacing / 2):
+        if -(xSpacing / 2) <= (clickX - gridX) <= (xSpacing / 2) and -(ySpacing / 2) <= (clickY - gridY) <= (ySpacing / 2): #  check if click is within cell bounds
             centerX = cells[str(i)]['indexX']
             centerY = cells[str(i)]['indexY']
             paintArea(centerX, centerY, 'empty')
@@ -146,15 +148,17 @@ def onMouseRight(clickX, clickY):
             break
 
 gridCoords, gridIndex = createGrid(rowCount, columnCount, cellSpacing)
-#drawGrid(gridCoords)
+#drawGrid(gridCoords) #  uncomment to draw grid lines
 xCoords = sorted({coord[0] for coord in gridCoords})
 yCoords = sorted({coord[1] for coord in gridCoords})
 xSpacing = xCoords[1] - xCoords[0]
 ySpacing = yCoords[1] - yCoords[0]
 cellSize = xSpacing
 cells = createCellsDict(gridIndex)
+ #  global variables created for faster access in functions
 
-def countAirNeighbors(cell, posMap=None):
+
+def countAirNeighbors(cell, posMap=None): #  count number of air neighbors around a given cell
     if posMap is None:
         posMap = buildPosMap(cells)
     if isinstance(cell, str):
@@ -192,7 +196,7 @@ def updateCells(viscosityValue):
         colIndex = cellData['indexX']
         columnsMap.setdefault(colIndex, []).append(cellKey)
     columnOrder = list(columnsMap.keys())
-    random.shuffle(columnOrder)
+    random.shuffle(columnOrder) #  randomize column processing order to prevent bias
     for colIndex in columnOrder:
         columnKeys = list(columnsMap[colIndex])
         for cellKey in columnKeys:
@@ -206,11 +210,11 @@ def updateCells(viscosityValue):
             cells[cellKey]['color'] = (1.0, 1.0, 1.0)
             nextPosKey = str(int(cellKey) + columnCount)
             newPos = int(cellKey)
-            if nextPosKey in cells and cells[nextPosKey]['cellState'] in ('solid', 'air'):
+            if nextPosKey in cells and cells[nextPosKey]['cellState'] in ('solid', 'air'): #  if blocked, try to drift around using viscosity
                 origX = cells[cellKey]['indexX']
                 origY = cells[cellKey]['indexY']
                 foundEmpty = False
-                for drift in range(0, viscosityValue + 1):
+                for drift in range(0, viscosityValue + 1): #  try drifting left or right up to viscosity value
                     candidates = []
                     if drift == 0:
                         candidates.append(origY)
@@ -231,10 +235,10 @@ def updateCells(viscosityValue):
                         break
             else:
                 newPos = int(cellKey) + columnCount
-            if newPos not in newAirPositions:
+            if newPos not in newAirPositions: #  prevent multiple air cells moving to same position
                 newAirPositions.append(newPos)
             else:
-                newAirPositions.append(int(cellKey))
+                newAirPositions.append(int(cellKey)) #  stay in place if blocked
     for pos in newAirPositions:
         stringPos = str(pos)
         if stringPos in cells:
@@ -242,7 +246,7 @@ def updateCells(viscosityValue):
             cells[stringPos]['color'] = (1.0, 1.0, 1.0)
     posMap = buildPosMap(cells)
     for cellKey, cellData in cells.items():
-        if cellData['cellState'] == 'air':
+        if cellData['cellState'] == 'air': #  update air cell colors based on neighbors
             cnt = countAirNeighbors(cellKey, posMap)
             pct = cnt / 8.0
             r = 1.0
@@ -250,11 +254,11 @@ def updateCells(viscosityValue):
             b = 1.0 - pct
             cellData['color'] = (r, g, b)
 
-def spawnAir(spawnSpacing):
+def spawnAir(spawnSpacing): #  spawn air in uniform rows, usually spaced by 1 cell apart
     global cells, columnCount
     spacingValue = spawnSpacing + 1
     for cellIndex in range(columnCount):
-        if cellIndex % spacingValue == 0:
+        if cellIndex % spacingValue == 0: #  spawn air at intervals defined by spacingValue
             cells[str(cellIndex)]['cellState'] = 'air'
             cells[str(cellIndex)]['color'] = (1.0, 1.0, 1.0)
 
@@ -268,7 +272,7 @@ def run(delay=tickSpeed, spawnDelay=2, spawnSpacing=1):
     drawGridAssets()
     fpsAverage = []
     sampleSize = 10
-    while isRunning:
+    while isRunning: #  build in fps display to terminal 
         startTime = time.time()
         updateCells(viscosity)
         drawGridAssets()
@@ -288,6 +292,7 @@ def pauseRun():
     global isRunning
     isRunning = False
 
+ #  key and mouse bindings
 screen.onscreenclick(onMouseLeft, 1)
 screen.onscreenclick(onMouseRight, 3)
 screen.onkey(run, "Return")
