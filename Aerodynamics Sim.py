@@ -278,11 +278,11 @@ def run(delay=tickSpeed, spawnDelay=2, spawnSpacing=1):
             drawGridAssets()
         time.sleep(delay)
         endTime = time.time()
-        fps = round(1 / (endTime - startTime), 3)
+        fps = round(1 / (endTime - startTime), 2)
         fpsAverage.append(fps)
         if len(fpsAverage) == sampleSize:
             del fpsAverage[0]
-        print(fps)
+        print(f"fps: {fps}, step {iterationCount}")
 
 def pauseRun():
     global isRunning
