@@ -69,7 +69,7 @@ def drawGrid(gridCoords): #  draw grid lines
 
 def createCellsDict(indexList):
     d = {}
-    
+
     for item in indexList:
         d[str(item[1])] = {'cellState': 'empty', 'indexX': item[0][0], 'indexY': item[0][1], 'color': (1.0, 1.0, 1.0)}
     
@@ -190,69 +190,101 @@ def countAirNeighbors(cell, posMap=None): #  count number of air neighbors aroun
 
 def updateCells(viscosityValue):
     global cells, rowCount, columnCount
-    newAirPositions = []
-    columnsMap = {}
-    for cellKey, cellData in cells.items():
-        colIndex = cellData['indexX']
-        columnsMap.setdefault(colIndex, []).append(cellKey)
-    columnOrder = list(columnsMap.keys())
-    random.shuffle(columnOrder) #  randomize column processing order to prevent bias
-    for colIndex in columnOrder:
-        columnKeys = list(columnsMap[colIndex])
-        for cellKey in columnKeys:
-            if cells[cellKey]['cellState'] != 'air':
-                continue
-            if colIndex >= rowCount - 1:
-                cells[cellKey]['cellState'] = 'empty'
-                cells[cellKey]['color'] = (1.0, 1.0, 1.0)
-                continue
-            cells[cellKey]['cellState'] = 'empty'
-            cells[cellKey]['color'] = (1.0, 1.0, 1.0)
-            nextPosKey = str(int(cellKey) + columnCount)
-            newPos = int(cellKey)
-            if nextPosKey in cells and cells[nextPosKey]['cellState'] in ('solid', 'air'): #  if blocked, try to drift around using viscosity
-                origX = cells[cellKey]['indexX']
-                origY = cells[cellKey]['indexY']
-                foundEmpty = False
-                for drift in range(0, viscosityValue + 1): #  try drifting left or right up to viscosity value
-                    candidates = []
-                    if drift == 0:
-                        candidates.append(origY)
-                    else:
-                        candidates.extend([origY + drift, origY - drift])
-                        random.shuffle(candidates)
-                    for candidateY in candidates:
-                        candidateX = origX + 1
-                        if candidateX >= rowCount or candidateY < 0 or candidateY >= columnCount:
-                            continue
-                        candidateIndex = candidateX * columnCount + candidateY
-                        candidateKey = str(candidateIndex)
-                        if candidateKey in cells and cells[candidateKey]['cellState'] == 'empty':
-                            newPos = candidateIndex
-                            foundEmpty = True
-                            break
-                    if foundEmpty:
-                        break
-            else:
-                newPos = int(cellKey) + columnCount
-            if newPos not in newAirPositions: #  prevent multiple air cells moving to same position
-                newAirPositions.append(newPos)
-            else:
-                newAirPositions.append(int(cellKey)) #  stay in place if blocked
-    for pos in newAirPositions:
-        stringPos = str(pos)
-        if stringPos in cells:
-            cells[stringPos]['cellState'] = 'air'
-            cells[stringPos]['color'] = (1.0, 1.0, 1.0)
+
     posMap = buildPosMap(cells)
-    for cellKey, cellData in cells.items():
-        if cellData['cellState'] == 'air': #  update air cell colors based on neighbors
-            cnt = countAirNeighbors(cellKey, posMap)
+
+    newPositions = {}
+    occupied = set()
+
+    cellKeys = list(cells.keys())
+    random.shuffle(cellKeys)
+
+    for key in cellKeys:
+        if cells[key]['cellState'] != 'air':
+            continue
+
+        ix = cells[key]['indexX']
+        iy = cells[key]['indexY']
+        oldIndex = int(key)
+
+
+        if ix == rowCount - 1: #  Last column
+            cells[key]['cellState'] = 'empty'
+            cells[key]['color'] = (1.0, 1.0, 1.0)
+            continue #  Do not move this air cell
+
+        cells[key]['cellState'] = 'empty'
+        cells[key]['color'] = (1.0, 1.0, 1.0)
+
+        nx = ix + 1
+        ny = iy
+        moved = False
+
+        targetIndex = nx * columnCount + ny
+        targetKey = str(targetIndex)
+
+        if (targetKey in cells
+            and cells[targetKey]['cellState'] == 'empty'
+            and targetIndex not in occupied):
+
+            newPositions[key] = targetIndex
+            occupied.add(targetIndex)
+            moved = True
+
+        if not moved:
+            for d in range(1, viscosityValue + 1):
+
+                candidates = []
+
+                 #  Up scan (higher row index)
+                uy = iy + d
+                if uy < columnCount:
+                    candidates.append((nx, uy))
+
+                 #  Down scan
+                dy = iy - d
+                if dy >= 0:
+                    candidates.append((nx, dy))
+
+                for cx, cy in candidates:
+                    if cx >= rowCount:
+                        continue
+
+                    candIndex = cx * columnCount + cy
+                    candKey = str(candIndex)
+
+                    if (candKey in cells
+                        and cells[candKey]['cellState'] == 'empty'
+                        and candIndex not in occupied):
+
+                        newPositions[key] = candIndex
+                        occupied.add(candIndex)
+                        moved = True
+                        break
+
+                if moved:
+                    break
+
+
+        if not moved:
+            if oldIndex not in occupied:
+                newPositions[key] = oldIndex
+                occupied.add(oldIndex)
+
+
+    for oldKey, newIndex in newPositions.items():
+        k = str(newIndex)
+        cells[k]['cellState'] = 'air'
+        cells[k]['color'] = (1.0, 1.0, 1.0)
+
+
+    posMap = buildPosMap(cells)
+    for k, data in cells.items():
+        if data['cellState'] == 'air':
+            cnt = countAirNeighbors(k, posMap)
             pct = cnt / 8.0
-            r = 1.0
-            g = 1.0 - pct
-            b = 1.0 - pct
-            cellData['color'] = (r, g, b)
+            data['color'] = (1.0, 1.0 - pct, 1.0 - pct)
+
 
 def spawnAir(spawnSpacing): #  spawn air in uniform rows, usually spaced by 1 cell apart
     global cells, columnCount
