@@ -1,12 +1,12 @@
 import turtle, time, random
 
 screenWidth, screenHeight = 800, 600 #  screen dimensions
-rowCount, columnCount = 400, 400 #  grid dimensions
-cellSpacing = 2 #  spacing between cells in the grid
+rowCount, columnCount = 100, 100 #  grid dimensions
+cellSpacing = 8 #  spacing between cells in the grid
 
 tickSpeed = 0 #  delay between simulation steps (seconds)
 viscosity = 3 #  higher values = more viscous fluid
-penSize = 8 #  area painted around mouse click
+penSize = 4 #  area painted around mouse click
 
  #  screen setup
 screen = turtle.Screen()
@@ -23,22 +23,22 @@ assetStamp.penup()
 
 def createGrid(rows, columns, spacing): #  create grid coordinates and index
     gridCoords, gridIndex = [], []
-    startX = -(rows * spacing / 2) + spacing / 2
+    startX = -(rows * spacing / 2) + spacing / 2 #  calculate starting x and y positions
     startY = -(columns * spacing / 2) + spacing / 2
     indexCounter = 0
     for rowIndex in range(rows):
         for columnIndex in range(columns):
-            gridCoords.append([startX + rowIndex * spacing, startY + columnIndex * spacing])
-            gridIndex.append([[rowIndex, columnIndex], indexCounter])
+            gridCoords.append([startX + rowIndex * spacing, startY + columnIndex * spacing]) #  calculate cell center coordinates
+            gridIndex.append([[rowIndex, columnIndex], indexCounter]) #  store cell indices and corresponding index
             indexCounter += 1
-    return gridCoords, gridIndex
+    return gridCoords, gridIndex #  return list of coordinates and corresponding index
 
 def drawGrid(gridCoords): #  draw grid lines
     gridTurtle = turtle.Turtle()
     gridTurtle.hideturtle()
     gridTurtle.speed(0)
     gridTurtle.penup()
-    xCoords = sorted({coord[0] for coord in gridCoords})
+    xCoords = sorted({coord[0] for coord in gridCoords}) #  
     yCoords = sorted({coord[1] for coord in gridCoords})
     if len(xCoords) < 2 or len(yCoords) < 2:
         return
@@ -67,11 +67,17 @@ def drawGrid(gridCoords): #  draw grid lines
     gridTurtle.goto(maxX, maxY)
     screen.update()
 
-def createCellsDict(indexList):
+def createCellsDict(indexList): #  create cells dictionary from grid index list
     d = {}
 
     for item in indexList:
-        d[str(item[1])] = {'cellState': 'empty', 'indexX': item[0][0], 'indexY': item[0][1], 'color': (1.0, 1.0, 1.0)}
+         #  item structure: [[rowIndex, columnIndex], overallIndex]
+        d[str(item[1])] = {
+            'cellState': 'empty',
+            'indexX': item[0][0], 
+            'indexY': item[0][1], 
+            'color': (1.0, 1.0, 1.0)
+            }
     
     return d
 
@@ -157,7 +163,6 @@ cellSize = xSpacing
 cells = createCellsDict(gridIndex)
  #  global variables created for faster access in functions
 
-
 def countAirNeighbors(cell, posMap=None): #  count number of air neighbors around a given cell
     if posMap is None:
         posMap = buildPosMap(cells)
@@ -188,16 +193,16 @@ def countAirNeighbors(cell, posMap=None): #  count number of air neighbors aroun
                 count += 1
     return count
 
-def updateCells(viscosityValue):
+def updateCells(viscosityValue): #  update cell states
     global cells, rowCount, columnCount
 
-    posMap = buildPosMap(cells)
+    posMap = buildPosMap(cells) #  faster lookup
 
     newPositions = {}
-    occupied = set()
+    occupied = set() #  track occupied positions to avoid conflicts
 
     cellKeys = list(cells.keys())
-    random.shuffle(cellKeys)
+    random.shuffle(cellKeys) #  randomize processing order to prevent bias
 
     for key in cellKeys:
         if cells[key]['cellState'] != 'air':
@@ -218,7 +223,7 @@ def updateCells(viscosityValue):
 
         nx = ix + 1
         ny = iy
-        moved = False
+        moved = False #  flag to track if cell has moved
 
         targetIndex = nx * columnCount + ny
         targetKey = str(targetIndex)
@@ -229,7 +234,7 @@ def updateCells(viscosityValue):
 
             newPositions[key] = targetIndex
             occupied.add(targetIndex)
-            moved = True
+            moved = True #  mark as moved
 
         if not moved:
             for d in range(1, viscosityValue + 1):
@@ -246,45 +251,44 @@ def updateCells(viscosityValue):
                 if dy >= 0:
                     candidates.append((nx, dy))
 
-                for cx, cy in candidates:
-                    if cx >= rowCount:
+                for cx, cy in candidates: #  check candidate positions
+                    if cx >= rowCount: #  out of bounds
                         continue
 
-                    candIndex = cx * columnCount + cy
+                    candIndex = cx * columnCount + cy #  
                     candKey = str(candIndex)
 
                     if (candKey in cells
                         and cells[candKey]['cellState'] == 'empty'
-                        and candIndex not in occupied):
+                        and candIndex not in occupied): #  move to candidate position
 
                         newPositions[key] = candIndex
                         occupied.add(candIndex)
-                        moved = True
+                        moved = True #  mark as moved
                         break
 
                 if moved:
                     break
 
 
-        if not moved:
+        if not moved: #  stay in place if no movement occurred
             if oldIndex not in occupied:
                 newPositions[key] = oldIndex
                 occupied.add(oldIndex)
 
 
-    for oldKey, newIndex in newPositions.items():
+    for oldKey, newIndex in newPositions.items(): #  update cell states based on new positions
         k = str(newIndex)
         cells[k]['cellState'] = 'air'
         cells[k]['color'] = (1.0, 1.0, 1.0)
 
 
-    posMap = buildPosMap(cells)
+    posMap = buildPosMap(cells) #  rebuild position map after updates
     for k, data in cells.items():
         if data['cellState'] == 'air':
             cnt = countAirNeighbors(k, posMap)
             pct = cnt / 8.0
             data['color'] = (1.0, 1.0 - pct, 1.0 - pct)
-
 
 def spawnAir(spawnSpacing): #  spawn air in uniform rows, usually spaced by 1 cell apart
     global cells, columnCount
@@ -294,7 +298,7 @@ def spawnAir(spawnSpacing): #  spawn air in uniform rows, usually spaced by 1 ce
             cells[str(cellIndex)]['cellState'] = 'air'
             cells[str(cellIndex)]['color'] = (1.0, 1.0, 1.0)
 
-def run(delay=tickSpeed, spawnDelay=2, spawnSpacing=1):
+def run(delay=tickSpeed, spawnDelay=2, spawnSpacing=1): #  main simulation loop (wind tunnel)
     global isRunning, viscosity
     if spawnDelay < 1:
         spawnDelay = 1
@@ -304,7 +308,7 @@ def run(delay=tickSpeed, spawnDelay=2, spawnSpacing=1):
     drawGridAssets()
     fpsAverage = []
     sampleSize = 10
-    while isRunning: #  build in fps display to terminal 
+    while isRunning: #  built in fps display to terminal 
         startTime = time.time()
         updateCells(viscosity)
         drawGridAssets()
@@ -318,15 +322,17 @@ def run(delay=tickSpeed, spawnDelay=2, spawnSpacing=1):
         fpsAverage.append(fps)
         if len(fpsAverage) == sampleSize:
             del fpsAverage[0]
-        print(f"fps: {fps}, step {iterationCount}")
+        averageFps = round(sum(fpsAverage) / len(fpsAverage), 2)
+        print(f"Step {iterationCount}\nAverage FPS: {averageFps}")
 
-def pauseRun():
+def pauseRun(): #  escape key to pause simulation
     global isRunning
     isRunning = False
 
  #  key and mouse bindings
-screen.onscreenclick(onMouseLeft, 1)
-screen.onscreenclick(onMouseRight, 3)
-screen.onkey(run, "Return")
-screen.onkey(pauseRun, "Escape")
-screen.mainloop()
+
+screen.onscreenclick(onMouseLeft, 1) #  left click to paint solid
+screen.onscreenclick(onMouseRight, 3) #  right click to paint empty
+screen.onkey(run, "Return") #  enter key to start simulation
+screen.onkey(pauseRun, "Escape") #  escape key to pause simulation
+screen.mainloop() #  keep window open
